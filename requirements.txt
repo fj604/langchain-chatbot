@@ -1,3 +1,4 @@
 streamlit
 langchain-aws
 langchain
+boto3
