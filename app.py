@@ -5,14 +5,16 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.tools import tool
 from langchain_core.messages.utils import message_chunk_to_message
 
-from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
+from langchain_community.utilities import WikipediaAPIWrapper
+
 import time
 import boto3
 
 
 
 @tool
-def current_date_time() -> str:
+def get_current_date_time() -> str:
     """Return the current date, time, day of the week, and time zone"""
     from datetime import datetime
     print("Current date and time tool called")
@@ -26,23 +28,40 @@ def no_such_tool() -> str:
     return "The tool you requested does not exist."
 
 @tool
-def duckduckgo_search(query: str) -> str:
-    """Search DuckDuckGo and return the first result"""
+def search_web(query: str) -> str:
+    """Search the web and return the first result"""
     search_runner = DuckDuckGoSearchRun()
     search_results = search_runner.invoke(query)
     if search_results:
-        return search_results[0]
+        return search_results
     else:
         return "No results found."
 
+@tool
+def search_wikipedia(query: str) -> str:
+    """Search Wikipedia and return the first result"""
+    api_wrapper = WikipediaAPIWrapper()
+    wiki_runner = WikipediaQueryRun(api_wrapper=api_wrapper, query=query)
+    wiki_results = wiki_runner.invoke(query)
+    if wiki_results:
+        return wiki_results
+    else:
+        return "No results found."
 
 tools = [
-    current_date_time,
-    duckduckgo_search,
+    get_current_date_time,
+    search_web,
+    search_wikipedia,
     no_such_tool,
 ]
 
-tool_map = {"current_date_time": current_date_time, "duckduckgo_search": duckduckgo_search}
+tool_map = {
+    "current_date_time": get_current_date_time,
+    "search_web": search_web,
+    "search_wikipedia": search_wikipedia,
+    "no_such_tool": no_such_tool,
+    }
+
 
 # Set the page title and icon
 st.set_page_config(page_title="🦜🔗 Chatbot App", page_icon="🤖")
