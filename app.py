@@ -5,6 +5,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.tools import tool
 from langchain_core.messages.utils import message_chunk_to_message
 
+import time
 import boto3
 
 
@@ -13,6 +14,7 @@ def current_date_time() -> str:
     """Return the current date, time, day of the week, and time zone"""
     from datetime import datetime
     print("Current date and time tool called")
+    time.sleep(3)
     now = datetime.now()
     return f"The current date and time is {now.strftime('%Y-%m-%d %H:%M:%S')} on a {now.strftime('%A')} in the {now.strftime('%Z')} time zone."
 
@@ -44,6 +46,8 @@ def get_text(message_content):
         return message_content
     elif isinstance(message_content, list):
         for item in message_content:
+            if isinstance(item, str):
+                return item
             if item["type"] == "text":
                 return item["text"]
 
@@ -65,33 +69,40 @@ def generate_response(model_id, region):
     # Create the chain with StrOutputParser for streaming
     chain = model_with_tools
 
-    # Create a placeholder for the assistant's response
-    assistant_message_placeholder = st.chat_message("assistant")
-    with st.spinner("Assistant is typing..."):
+    message_placeholder = st.empty()
+    
+
+    with message_placeholder:
+        # Create a placeholder for the assistant's response
+        assistant_message_placeholder = st.chat_message("assistant")
+
         response_placeholder = assistant_message_placeholder.markdown(
-            "..."
+            "💭"
         )  # Initial placeholder for response
 
-    # Loop through chunks and update the placeholder
-    first = True
-    text = ""
-    print("Message history:")
-    for message in st.session_state.messages:
-        print(message)
+        # Loop through chunks and update the placeholder
+        first = True
+        text = ""
 
-    for chunk in chain.stream(st.session_state.messages):
-        if first:
-            response = chunk
-            first = False
-        else:
-            response += chunk
-        if response.content:
-            for item in response.content:
-                if item["type"] == "text":
-                    text = item["text"]
-                    response_placeholder.markdown(text + "▌")
-    response_placeholder.markdown(text)
-    # print("Final Response:", response)
+        for chunk in chain.stream(st.session_state.messages):
+            if first:
+                response = chunk
+                first = False
+            else:
+                response += chunk
+            if response.content:
+                if isinstance(response.content, str):
+                    text = response.content
+                elif isinstance(response.content, list):
+                    for item in response.content:
+                        print("Item:", item)
+                        if item["type"] == "text":
+                            text = item["text"]
+                            break
+                response_placeholder.markdown(text + "▌")
+        response_placeholder.markdown(text)
+    if not text:
+        message_placeholder.empty()
     return message_chunk_to_message(response)
 
 
@@ -184,15 +195,18 @@ if prompt := st.chat_input("Enter your message here..."):
         response = generate_response(st.session_state.model_id, st.session_state.region)
         st.session_state.messages.append(response)
         if response.tool_calls:
-            for tool_call in response.tool_calls:
-                print("Tool call:", tool_call)
-                selected_tool = tool_map.get(tool_call["name"])
-                if not selected_tool:
-                    selected_tool = no_such_tool
-                    continue
-                print("Selected tool:", selected_tool)
-                tool_message = selected_tool.invoke(tool_call)
-                print("Tool message:", tool_message)
-                st.session_state.messages.append(tool_message)
+                for tool_call in response.tool_calls:
+                    print("Tool call:", tool_call)
+                    tool_name = tool_call["name"]
+                    selected_tool = tool_map.get(tool_name)
+                    if not selected_tool:
+                        selected_tool = no_such_tool
+                        tool_name = "no_such_tool"
+                        continue
+                    print("Selected tool:", selected_tool)
+                    with st.spinner(tool_name):
+                        tool_message = selected_tool.invoke(tool_call)
+                        print("Tool message:", tool_message)
+                    st.session_state.messages.append(tool_message)
         else:
             input_required = True
