@@ -1,60 +1,69 @@
 import streamlit as st
 from langchain_aws.chat_models import ChatBedrockConverse
-from langchain.schema import HumanMessage, AIMessage
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.tools import tool
-from langchain.agents import initialize_agent, Tool
+from langchain_core.messages.utils import message_chunk_to_message
 
 import boto3
 
 
 @tool
 def current_date_time() -> str:
-    """Return the current date and time in the format 'YYYY-MM-DD HH:MM:SS TZ'."""
+    """Return the current date, time, day of the week, and time zone"""
     from datetime import datetime
-
     print("Current date and time tool called")
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
+    now = datetime.now()
+    return f"The current date and time is {now.strftime('%Y-%m-%d %H:%M:%S')} on a {now.strftime('%A')} in the {now.strftime('%Z')} time zone."
+
+@tool
+def no_such_tool() -> str:
+    """Return a message indicating that the tool does not exist"""
+    return "The tool you requested does not exist."
 
 
 tools = [
     current_date_time,
+    no_such_tool,
 ]
+
+tool_map = {"current_date_time": current_date_time}
 
 # Set the page title and icon
 st.set_page_config(page_title="🦜🔗 Chatbot App", page_icon="🤖")
 
 # Initialize chat history in session state
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [SystemMessage(content="You are a helpful assistant.")]
 
-# Display existing chat messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
+def get_text(message_content):
+    if not message_content:
+        return
+    elif isinstance(message_content, str):
+        return message_content
+    elif isinstance(message_content, list):
+        for item in message_content:
+            if item["type"] == "text":
+                return item["text"]
+
+
+def display_conversation_history():
+    for message in st.session_state.messages:
+        text = get_text(message.content)
+        if text:
+            if isinstance(message, HumanMessage):
+                st.chat_message("user").markdown(text)
+            elif isinstance(message, AIMessage):
+                st.chat_message("assistant").markdown(text)
 
 # Function to generate and display AI response
-def generate_response(prompt, model_id, region):
+def generate_response(model_id, region):
     model = ChatBedrockConverse(model_id=model_id, region_name=region)
     model_with_tools = model.bind_tools(tools)
-    response = ""
-
-    # Prepare the input history to maintain context
-    conversation_history = [
-        (
-            HumanMessage(content=msg["content"])
-            if msg["role"] == "user"
-            else AIMessage(content=msg["content"])
-        )
-        for msg in st.session_state.messages
-    ]
-
-    # Add the current prompt to the conversation history
-    conversation_history.append(HumanMessage(content=prompt))
 
     # Create the chain with StrOutputParser for streaming
-    chain = model_with_tools | StrOutputParser()
+    chain = model_with_tools
 
     # Create a placeholder for the assistant's response
     assistant_message_placeholder = st.chat_message("assistant")
@@ -64,17 +73,26 @@ def generate_response(prompt, model_id, region):
         )  # Initial placeholder for response
 
     # Loop through chunks and update the placeholder
-    for chunk in chain.stream(conversation_history):
-        print(chunk)
-        if isinstance(chunk, str):
-            response += chunk
-            response_placeholder.markdown(
-                response + "▌"
-            )  # Update only the content in the placeholder
+    first = True
+    text = ""
+    print("Message history:")
+    for message in st.session_state.messages:
+        print(message)
+
+    for chunk in chain.stream(st.session_state.messages):
+        if first:
+            response = chunk
+            first = False
         else:
-            st.warning("Received unexpected chunk format. Please check model output.")
-    response_placeholder.markdown(response)
-    return response
+            response += chunk
+        if response.content:
+            for item in response.content:
+                if item["type"] == "text":
+                    text = item["text"]
+                    response_placeholder.markdown(text + "▌")
+    response_placeholder.markdown(text)
+    # print("Final Response:", response)
+    return message_chunk_to_message(response)
 
 
 # Get a list of all available models in Bedrock in the given region
@@ -116,7 +134,8 @@ region = st.sidebar.selectbox(
     st.session_state.regions,
     index=(
         st.session_state.regions.index(st.session_state.region)
-        if "region" in st.session_state and st.session_state.region in st.session_state.regions
+        if "region" in st.session_state
+        and st.session_state.region in st.session_state.regions
         else 0
     ),
 )
@@ -149,13 +168,31 @@ if st.sidebar.button("Clear chat history"):
     st.session_state.messages = []
     st.rerun()
 
+# Display existing chat messages
+
+display_conversation_history()
+
 # Input field for user message
 if prompt := st.chat_input("Enter your message here..."):
     # Display user message
     st.chat_message("user").markdown(prompt)
-    # Append user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
     # Generate AI response
-    response = generate_response(prompt, st.session_state.model_id, st.session_state.region)
-    # Append AI response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    # Add the current prompt to the conversation history
+    st.session_state.messages.append(HumanMessage(content=prompt))
+    input_required = False
+    while not input_required:
+        response = generate_response(st.session_state.model_id, st.session_state.region)
+        st.session_state.messages.append(response)
+        if response.tool_calls:
+            for tool_call in response.tool_calls:
+                print("Tool call:", tool_call)
+                selected_tool = tool_map.get(tool_call["name"])
+                if not selected_tool:
+                    selected_tool = no_such_tool
+                    continue
+                print("Selected tool:", selected_tool)
+                tool_message = selected_tool.invoke(tool_call)
+                print("Tool message:", tool_message)
+                st.session_state.messages.append(tool_message)
+        else:
+            input_required = True
