@@ -6,11 +6,10 @@ from langchain_core.tools import tool
 from langchain_core.messages.utils import message_chunk_to_message
 
 from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
-from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.utilities import WikipediaAPIWrapper, GoogleSerperAPIWrapper
 
 import time
 import boto3
-
 
 
 @tool
@@ -18,7 +17,6 @@ def get_current_date_time() -> str:
     """Return the current date, time, day of the week, and time zone"""
     from datetime import datetime
     print("Current date and time tool called")
-    time.sleep(3)
     now = datetime.now()
     return f"The current date and time is {now.strftime('%Y-%m-%d %H:%M:%S')} on a {now.strftime('%A')} in the {now.strftime('%Z')} time zone."
 
@@ -31,25 +29,41 @@ def no_such_tool() -> str:
 def search_web(query: str) -> str:
     """Search the web and return the first result"""
     search_runner = DuckDuckGoSearchRun()
-    search_results = search_runner.invoke(query)
-    if search_results:
-        return search_results
-    else:
-        return "No results found."
+    try:
+        search_results = search_runner.invoke(query)
+        if search_results:
+            return search_results
+        else:
+            return "No results found."
+    except Exception as e:
+        return f"An error occurred: {e}"
 
+@tool
+def search_google(query: str) -> str:
+    """Search Google and return the first result"""
+    search = GoogleSerperAPIWrapper()
+    try:
+        return search.run(query)
+    except Exception as e:
+        return f"An error occurred: {e}"
+    
 @tool
 def search_wikipedia(query: str) -> str:
     """Search Wikipedia and return the first result"""
     api_wrapper = WikipediaAPIWrapper()
     wiki_runner = WikipediaQueryRun(api_wrapper=api_wrapper, query=query)
-    wiki_results = wiki_runner.invoke(query)
-    if wiki_results:
-        return wiki_results
-    else:
-        return "No results found."
+    try:
+        wiki_results = wiki_runner.invoke(query)
+        if wiki_results:
+            return wiki_results
+        else:
+            return "No results found."
+    except Exception as e:
+        return f"An error occurred: {e}"
 
 tools = [
     get_current_date_time,
+    search_google,
     search_web,
     search_wikipedia,
     no_such_tool,
@@ -57,6 +71,7 @@ tools = [
 
 tool_map = {
     "current_date_time": get_current_date_time,
+    "search_google": search_google,
     "search_web": search_web,
     "search_wikipedia": search_wikipedia,
     "no_such_tool": no_such_tool,
