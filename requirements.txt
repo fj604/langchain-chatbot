@@ -1,4 +1,6 @@
 streamlit
 langchain-aws
 langchain
+langchain_community
+duckduckgo-search
 boto3

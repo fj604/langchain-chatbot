@@ -5,8 +5,10 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.tools import tool
 from langchain_core.messages.utils import message_chunk_to_message
 
+from langchain_community.tools import DuckDuckGoSearchRun
 import time
 import boto3
+
 
 
 @tool
@@ -23,13 +25,24 @@ def no_such_tool() -> str:
     """Return a message indicating that the tool does not exist"""
     return "The tool you requested does not exist."
 
+@tool
+def duckduckgo_search(query: str) -> str:
+    """Search DuckDuckGo and return the first result"""
+    search_runner = DuckDuckGoSearchRun()
+    search_results = search_runner.invoke(query)
+    if search_results:
+        return search_results[0]
+    else:
+        return "No results found."
+
 
 tools = [
     current_date_time,
+    duckduckgo_search,
     no_such_tool,
 ]
 
-tool_map = {"current_date_time": current_date_time}
+tool_map = {"current_date_time": current_date_time, "duckduckgo_search": duckduckgo_search}
 
 # Set the page title and icon
 st.set_page_config(page_title="🦜🔗 Chatbot App", page_icon="🤖")
@@ -95,7 +108,6 @@ def generate_response(model_id, region):
                     text = response.content
                 elif isinstance(response.content, list):
                     for item in response.content:
-                        print("Item:", item)
                         if item["type"] == "text":
                             text = item["text"]
                             break
@@ -198,7 +210,7 @@ if prompt := st.chat_input("Enter your message here..."):
                 for tool_call in response.tool_calls:
                     print("Tool call:", tool_call)
                     tool_name = tool_call["name"]
-                    selected_tool = tool_map.get(tool_name)
+                    selected_tool = tool_map.get(tool_name, None)
                     if not selected_tool:
                         selected_tool = no_such_tool
                         tool_name = "no_such_tool"
