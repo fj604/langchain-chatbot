@@ -87,7 +87,7 @@ tools = [
 ]
 
 tool_map = {
-    "current_date_time": get_current_date_time,
+    "get_current_date_time": get_current_date_time,
     "search_google": search_google,
     "search_web": search_web,
     "search_wikipedia": search_wikipedia,
@@ -248,6 +248,7 @@ if st.sidebar.button("Clear chat history"):
 # Display existing chat messages
 
 display_conversation_history()
+print("Messages:", st.session_state.messages)
 
 # Input field for user message
 if prompt := st.chat_input("Enter your message here..."):
