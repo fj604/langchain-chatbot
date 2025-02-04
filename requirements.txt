@@ -4,3 +4,5 @@ langchain
 langchain_community
 duckduckgo-search
 boto3
+wikibase-rest-api-client
+mediawikiapi
