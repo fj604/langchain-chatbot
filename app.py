@@ -1,12 +1,14 @@
 import streamlit as st
 from langchain_aws.chat_models import ChatBedrockConverse
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.tools import tool
 from langchain_core.messages.utils import message_chunk_to_message
 
 from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper, GoogleSerperAPIWrapper
+from langchain_community.tools.wikidata.tool import WikidataAPIWrapper, WikidataQueryRun
+
+
 
 import time
 import boto3
@@ -27,7 +29,7 @@ def no_such_tool() -> str:
 
 @tool
 def search_web(query: str) -> str:
-    """Search the web and return the first result"""
+    """Search the web and return the result"""
     search_runner = DuckDuckGoSearchRun()
     try:
         search_results = search_runner.invoke(query)
@@ -40,7 +42,7 @@ def search_web(query: str) -> str:
 
 @tool
 def search_google(query: str) -> str:
-    """Search Google and return the first result"""
+    """Search Google and return the result"""
     search = GoogleSerperAPIWrapper()
     try:
         return search.run(query)
@@ -49,7 +51,7 @@ def search_google(query: str) -> str:
     
 @tool
 def search_wikipedia(query: str) -> str:
-    """Search Wikipedia and return the first result"""
+    """Search Wikipedia and return the result"""
     api_wrapper = WikipediaAPIWrapper()
     wiki_runner = WikipediaQueryRun(api_wrapper=api_wrapper, query=query)
     try:
@@ -61,11 +63,26 @@ def search_wikipedia(query: str) -> str:
     except Exception as e:
         return f"An error occurred: {e}"
 
+
+@tool
+def search_wikidata(query: str) -> str:
+    """Search Wikidata and return the result"""
+    try:
+        wikidata = WikidataQueryRun(api_wrapper=WikidataAPIWrapper())
+        if wikidata:
+            return wikidata
+        else:
+            return "No results found."
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+
 tools = [
     get_current_date_time,
     search_google,
     search_web,
     search_wikipedia,
+    search_wikidata,
     no_such_tool,
 ]
 
@@ -74,6 +91,7 @@ tool_map = {
     "search_google": search_google,
     "search_web": search_web,
     "search_wikipedia": search_wikipedia,
+    "search_wikidata": search_wikidata,
     "no_such_tool": no_such_tool,
     }
 
@@ -107,6 +125,8 @@ def display_conversation_history():
                 st.chat_message("user").markdown(text)
             elif isinstance(message, AIMessage):
                 st.chat_message("assistant").markdown(text)
+            elif isinstance(message, SystemMessage):
+                pass
 
 # Function to generate and display AI response
 def generate_response(model_id, region):
