@@ -9,23 +9,25 @@ from langchain_community.utilities import WikipediaAPIWrapper, GoogleSerperAPIWr
 from langchain_community.tools.wikidata.tool import WikidataAPIWrapper, WikidataQueryRun
 
 
-
 import time
 import boto3
 
 
 @tool
 def get_current_date_time() -> str:
-    """Return the current date, time, day of the week, and time zone"""
+    """Return the current date, time, and day of the week"""
     from datetime import datetime
+
     print("Current date and time tool called")
     now = datetime.now()
-    return f"The current date and time is {now.strftime('%Y-%m-%d %H:%M:%S')} on a {now.strftime('%A')} in the {now.strftime('%Z')} time zone."
+    return f"The current date and time is {now.strftime('%Y-%m-%d %H:%M:%S')} on a {now.strftime('%A')}."
+
 
 @tool
 def no_such_tool() -> str:
     """Return a message indicating that the tool does not exist"""
     return "The tool you requested does not exist."
+
 
 @tool
 def search_web(query: str) -> str:
@@ -40,6 +42,7 @@ def search_web(query: str) -> str:
     except Exception as e:
         return f"An error occurred: {e}"
 
+
 @tool
 def search_google(query: str) -> str:
     """Search Google and return the result"""
@@ -48,7 +51,8 @@ def search_google(query: str) -> str:
         return search.run(query)
     except Exception as e:
         return f"An error occurred: {e}"
-    
+
+
 @tool
 def search_wikipedia(query: str) -> str:
     """Search Wikipedia and return the result"""
@@ -93,7 +97,7 @@ tool_map = {
     "search_wikipedia": search_wikipedia,
     "search_wikidata": search_wikidata,
     "no_such_tool": no_such_tool,
-    }
+}
 
 
 # Set the page title and icon
@@ -128,16 +132,15 @@ def display_conversation_history():
             elif isinstance(message, SystemMessage):
                 pass
 
+
 # Function to generate and display AI response
 def generate_response(model_id, region):
     model = ChatBedrockConverse(model_id=model_id, region_name=region)
     model_with_tools = model.bind_tools(tools)
 
-    # Create the chain with StrOutputParser for streaming
     chain = model_with_tools
 
     message_placeholder = st.empty()
-    
 
     with message_placeholder:
         # Create a placeholder for the assistant's response
@@ -262,18 +265,18 @@ if prompt := st.chat_input("Enter your message here..."):
         response = generate_response(st.session_state.model_id, st.session_state.region)
         st.session_state.messages.append(response)
         if response.tool_calls:
-                for tool_call in response.tool_calls:
-                    print("Tool call:", tool_call)
-                    tool_name = tool_call["name"]
-                    selected_tool = tool_map.get(tool_name, None)
-                    if not selected_tool:
-                        selected_tool = no_such_tool
-                        tool_name = "no_such_tool"
-                        continue
-                    print("Selected tool:", selected_tool)
-                    with st.spinner(tool_name):
-                        tool_message = selected_tool.invoke(tool_call)
-                        print("Tool message:", tool_message)
-                    st.session_state.messages.append(tool_message)
+            for tool_call in response.tool_calls:
+                print("Tool call:", tool_call)
+                tool_name = tool_call["name"]
+                selected_tool = tool_map.get(tool_name, None)
+                if not selected_tool:
+                    selected_tool = no_such_tool
+                    tool_name = "no_such_tool"
+                    continue
+                print("Selected tool:", selected_tool)
+                with st.spinner(tool_name):
+                    tool_message = selected_tool.invoke(tool_call)
+                    print("Tool message:", tool_message)
+                st.session_state.messages.append(tool_message)
         else:
             input_required = True
