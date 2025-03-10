@@ -1,14 +1,24 @@
+#ST01: To modify the chatbot so that it introduces itself as an assistant for pharmacokinetics (PK) data analysis before the user asks any questions, we’ll add an introductory message that appears at the beginning of the chat. This message will inform the user of the assistant's capabilities, such as analyzing PK data for AUC, Cmax, human projection, and dosing regimen simulation.
+
+
 import streamlit as st
 from langchain_aws.chat_models import ChatBedrockConverse
 from langchain.schema import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 
 # Set the page title and icon
-st.set_page_config(page_title="🦜🔗 Chatbot App", page_icon="🤖")
+st.set_page_config(page_title="🦜🔗 PK_Chat_ST01 App", page_icon="🤖")
 
-# Initialize chat history in session state
+# Initialize chat history in session state with an introduction if it doesn't already exist
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {"role": "assistant", "content": (
+            "Hello! I am your PK analysis assistant. I can help you analyze pharmacokinetics data, "
+            "calculate AUC (Area Under the Curve) and Cmax (Maximum Concentration), project human "
+            "dose responses, and simulate dosing regimens. Feel free to ask me any specific PK-related questions."
+        )}
+    ]
+
 
 # Display existing chat messages
 for message in st.session_state.messages:

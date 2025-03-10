@@ -1,0 +1,52 @@
+{
+  "version": "2025-03-10",
+  "designations": {
+    "blq": "BLQ",
+    "missing": "NS",
+    "concentration_unit": "ng/mL"
+  },
+  "columns": {
+    "time": "Time(hr)",
+    "unique_id": "Unique_ID",
+    "concentration": {
+      "observed": "Cp(ng/mL)",
+      "analyzed": "Analyzed_Conc"
+    },
+    "sorting": [
+      "Unique_ID",
+      "Time(hr)"
+    ],
+    "grouping": [
+      "Unique_ID",
+      "Treatment"
+    ]
+  },
+  "dosing": {
+    "amount": 10000,
+    "unit": "mg",
+    "frequency": "missing",
+    "type": "missing"
+  },
+  "time": {
+    "unit": "hr",
+    "time_of_administration": 0,
+    "tau": 24,
+    "infusion": {
+      "protocol": "rate",
+      "amount": "1"
+    }
+  },
+  "kel_rules": {
+    "regression_statistic": "adj_r2",
+    "minimum_statistic": 0,
+    "maximum_extrapolation_linear": 0,
+    "maximum_extrapolation_logarithmic": 0,
+    "maximum_time_points": 0,
+    "minimum_span": 0,
+    "earliest_time_point": 0,
+    "tie": [
+      "kel_n",
+      "kel_lower"
+    ]
+  }
+}

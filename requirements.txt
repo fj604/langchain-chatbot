@@ -1,3 +1,6 @@
+pandas
+langchain_aws
+boto3
+botocore
 streamlit
-langchain-aws
-langchain
+datetime
